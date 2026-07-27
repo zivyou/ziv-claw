@@ -45,7 +45,7 @@ public class ReActAgent {
                     return;
                 }
                 messages.add(response);
-                log.debug("模型思考过程: {}", response);
+                log.info("模型思考过程: {}", response);
             }
 
             var tools = registry.getAvailableTools();

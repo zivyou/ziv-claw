@@ -1,10 +1,9 @@
 package com.zivyou.zivclaw.provider;
 
-import com.volcengine.ark.runtime.model.completion.chat.ChatCompletionRequest;
-import com.volcengine.ark.runtime.model.completion.chat.ChatFunctionCall;
-import com.volcengine.ark.runtime.model.completion.chat.ChatMessage;
-import com.volcengine.ark.runtime.model.completion.chat.ChatMessageRole;
-import com.volcengine.ark.runtime.model.completion.chat.ChatToolCall;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.volcengine.ark.runtime.model.completion.chat.*;
 import com.volcengine.ark.runtime.service.ArkService;
 import com.zivyou.zivclaw.context.Context;
 import com.zivyou.zivclaw.message.Function;
@@ -20,9 +19,10 @@ import java.util.List;
 
 @Slf4j
 public class ArkProvider implements Provider, AutoCloseable {
-    private final String baseUrl = "https://ark.cn-beijing.volces.com/api/v3";
+    private final String baseUrl = "https://ark.cn-beijing.volces.com/api/plan/v3";
     private final String apiKey = System.getenv("ARK_AGENT_KEY");
     private final ArkService arkService;
+    private final static ObjectMapper objectMapper = new ObjectMapper();
 
     public ArkProvider() {
         this.arkService = ArkService.builder().baseUrl(baseUrl)
@@ -35,9 +35,24 @@ public class ArkProvider implements Provider, AutoCloseable {
 
     @Override
     public Message generate(Context context, List<Message> messages, List<ToolDefinition> toolDefinitions) {
-        ChatCompletionRequest request = ChatCompletionRequest.builder().build();
+        ChatCompletionRequest request = ChatCompletionRequest.builder().model("ark-code-latest")
+                .messages(messages.stream().map(ArkProvider::convert).toList())
+                .tools(toolDefinitions.stream().map(ArkProvider::convert).toList())
+                .build();
         var response = arkService.createChatCompletion(request).getChoices().get(0).getMessage();
         return convert(response);
+    }
+
+    private static ChatTool convert(ToolDefinition toolDefinition) {
+        try {
+            JsonNode jsonNode = objectMapper.readTree(toolDefinition.getInputSchema());
+            return new ChatTool(
+                    toolDefinition.getName(),
+                    new ChatFunction.Builder().name(toolDefinition.getName()).description(toolDefinition.getDescription()).parameters(jsonNode).build()
+            );
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     static Message convert(ChatMessage chatMessage) {
