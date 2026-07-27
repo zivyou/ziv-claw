@@ -69,7 +69,29 @@ public class ArkProvider implements Provider, AutoCloseable {
     }
 
     static ChatMessage convert(Message message) {
-        return null;
+        if (message == null) {
+            throw new IllegalArgumentException("message must not be null");
+        }
+        if (message.getRefusal() != null) {
+            throw new IllegalArgumentException("refusal is not supported by Ark ChatMessage");
+        }
+
+        List<ChatToolCall> arkToolCalls = null;
+        List<ToolCall> srcToolCalls = message.getToolCalls();
+        if (srcToolCalls != null) {
+            arkToolCalls = new ArrayList<>(srcToolCalls.size());
+            for (ToolCall tc : srcToolCalls) {
+                arkToolCalls.add(toArkToolCall(tc));
+            }
+        }
+
+        return ChatMessage.builder()
+                .role(toArkRole(message.getRole()))
+                .content(message.getContent())
+                .name(message.getName())
+                .toolCalls(arkToolCalls)
+                .toolCallId(message.getToolCallId())
+                .build();
     }
 
     private static Role toLocalRole(ChatMessageRole role) {
@@ -112,6 +134,33 @@ public class ArkProvider implements Provider, AutoCloseable {
                         .arguments(arkFunction.getArguments())
                         .build())
                 .build();
+    }
+
+    private static ChatMessageRole toArkRole(Role role) {
+        if (role == null) {
+            throw new IllegalArgumentException("role must not be null");
+        }
+        return switch (role) {
+            case SYSTEM -> ChatMessageRole.SYSTEM;
+            case USER -> ChatMessageRole.USER;
+            case ASSISTANT -> ChatMessageRole.ASSISTANT;
+            case TOOL -> ChatMessageRole.TOOL;
+        };
+    }
+
+    private static ChatToolCall toArkToolCall(ToolCall toolCall) {
+        if (toolCall == null) {
+            throw new IllegalArgumentException("tool call must not be null");
+        }
+        Function fn = toolCall.getFunction();
+        if (fn == null) {
+            throw new IllegalArgumentException("tool call function must not be null");
+        }
+        return new ChatToolCall(
+                toolCall.getId(),
+                toolCall.getType(),
+                new ChatFunctionCall(fn.getName(), fn.getArguments())
+        );
     }
 
     @Override
