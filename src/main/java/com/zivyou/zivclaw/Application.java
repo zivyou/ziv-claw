@@ -12,7 +12,7 @@ public class Application {
         var context = new Context();
         var userPrompt = "hello?";
         var provider = new ArkProvider();
-        var registry = new DefaultRegistry();
+        var registry = DefaultRegistry.getInstance();
         ReActAgent loop = new ReActAgent(provider, registry, ".", true);
         loop.start(context, userPrompt);
         log.error("SYSTEM ERROR: react loop corrupted!");

@@ -47,7 +47,7 @@ public class ArkProvider implements Provider, AutoCloseable {
         try {
             JsonNode jsonNode = objectMapper.readTree(toolDefinition.getInputSchema());
             return new ChatTool(
-                    toolDefinition.getName(),
+                    "function",
                     new ChatFunction.Builder().name(toolDefinition.getName()).description(toolDefinition.getDescription()).parameters(jsonNode).build()
             );
         } catch (JsonProcessingException e) {
