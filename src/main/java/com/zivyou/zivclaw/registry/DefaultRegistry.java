@@ -1,4 +1,4 @@
-package com.zivyou.zivclaw.tool;
+package com.zivyou.zivclaw.registry;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.victools.jsonschema.generator.OptionPreset;
@@ -7,6 +7,7 @@ import com.github.victools.jsonschema.generator.SchemaGeneratorConfig;
 import com.github.victools.jsonschema.generator.SchemaGeneratorConfigBuilder;
 import com.github.victools.jsonschema.generator.SchemaVersion;
 import com.github.victools.jsonschema.module.jackson.JacksonModule;
+import com.github.victools.jsonschema.module.jackson.JacksonOption;
 import com.zivyou.zivclaw.context.Context;
 import com.zivyou.zivclaw.message.ToolCall;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +24,7 @@ import java.util.Map;
  * ziv-claw 的手搓 IoC / 工具注册表。
  *
  * <p>启动时通过 {@link Reflections} 扫描 {@link #BASE_PACKAGE} 下所有标注了 {@link AgentTool}
- * 的类,对每个类各 {@code new} 一份实例(单例),按 {@link Tool#name()} 建索引,并根据
+ * 的类,对每个类各 {@code new} 一份实例(单例),按 {@link AgentTool#name()} 建索引,并根据
  * {@link Tool#argsType()} 自动生成 JSON Schema 得到 {@link ToolDefinition}。</p>
  *
  * <p>全局单例通过 {@link #getInstance()} 获取;测试可通过包私有的
@@ -74,10 +75,13 @@ public class DefaultRegistry implements Registry {
         //     Java 类型元信息)。
         //   · JacksonModule                ── 让生成器识别 @JsonProperty / @JsonPropertyDescription
         //     等 Jackson 注解,作者可以借此给字段加描述、改字段名。
+        //   · JacksonOption.RESPECT_JSONPROPERTY_REQUIRED  ── 让 @JsonProperty(required=true)
+        //     真的落到 schema 的 "required": [...] 数组里(默认关闭)。工具作者只需
+        //     在字段上写 @JsonProperty(required = true),不再需要手写 required 数组。
         // ─────────────────────────────────────────────────────────────────────────────
         SchemaGeneratorConfigBuilder configBuilder = new SchemaGeneratorConfigBuilder(
                 SchemaVersion.DRAFT_2020_12, OptionPreset.PLAIN_JSON);
-        configBuilder.with(new JacksonModule());
+        configBuilder.with(new JacksonModule(JacksonOption.RESPECT_JSONPROPERTY_REQUIRED));
         SchemaGeneratorConfig schemaConfig = configBuilder.build();
         SchemaGenerator schemaGenerator = new SchemaGenerator(schemaConfig);
 
@@ -205,6 +209,9 @@ public class DefaultRegistry implements Registry {
         if (result == null) {
             return ToolResult.error(toolCallId, "工具 " + name + " 返回了 null");
         }
-        return result;
+        // 协议 id 单点注入:工具自身不应关心 tool_call_id(它是 LLM 协议层字段,
+        // 用于把 tool 消息和发起它的 tool_call 配对),这里强制盖上,避免任何一个
+        // 工具漏塞 id 导致下一轮请求被 provider 判为 MissingParameter。
+        return result.withToolCallId(toolCallId);
     }
 }

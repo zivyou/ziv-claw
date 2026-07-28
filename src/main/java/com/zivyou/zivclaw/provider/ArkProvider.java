@@ -10,7 +10,7 @@ import com.zivyou.zivclaw.message.Function;
 import com.zivyou.zivclaw.message.Message;
 import com.zivyou.zivclaw.message.Role;
 import com.zivyou.zivclaw.message.ToolCall;
-import com.zivyou.zivclaw.tool.ToolDefinition;
+import com.zivyou.zivclaw.registry.ToolDefinition;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;

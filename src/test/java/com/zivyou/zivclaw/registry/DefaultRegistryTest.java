@@ -1,4 +1,4 @@
-package com.zivyou.zivclaw.tool;
+package com.zivyou.zivclaw.registry;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,7 +36,8 @@ class DefaultRegistryTest {
             StringBuilder sb = new StringBuilder();
             int n = args.times == null ? 1 : args.times;
             for (int i = 0; i < n; i++) sb.append(args.name);
-            return ToolResult.ok("call-1", sb.toString());
+            // 工具不关心 tool_call_id,registry 会统一注入
+            return ToolResult.ok(sb.toString());
         }
     }
 
@@ -45,7 +46,7 @@ class DefaultRegistryTest {
     public static class DuplicateEchoTool extends AbstractTool<EchoArgs> {
         @Override
         public ToolResult invoke(Context ctx, EchoArgs args) {
-            return ToolResult.ok("call-1", "dup");
+            return ToolResult.ok("dup");
         }
     }
 
@@ -82,15 +83,17 @@ class DefaultRegistryTest {
                         .arguments("{\"name\":\"hi\",\"times\":3}")
                         .build())
                 .build();
-        ToolResult result = registry.execute(new Context(), call);
+        ToolResult result = registry.execute(Context.builder().workDir(".").build(), call);
         assertFalse(result.isError());
         assertEquals("hihihi", result.getOutput());
+        // registry 应把 tool_call 的 id 单点注入到 ToolResult,工具自己不用管
+        assertEquals("call-1", result.getToolCallId());
     }
 
     @Test
     void 单例复用同一工具实例() {
         DefaultRegistry registry = new DefaultRegistry(List.of(EchoTool.class));
-        Context ctx = new Context();
+        Context ctx = Context.builder().workDir(".").build();
         ToolCall call = ToolCall.builder()
                 .id("call-x")
                 .function(Function.builder().name("echo").arguments("{\"name\":\"a\"}").build())
@@ -107,7 +110,7 @@ class DefaultRegistryTest {
                 .id("call-2")
                 .function(Function.builder().name("nope").arguments("{}").build())
                 .build();
-        ToolResult result = registry.execute(new Context(), call);
+        ToolResult result = registry.execute(Context.builder().workDir(".").build(), call);
         assertTrue(result.isError());
         assertEquals("call-2", result.getToolCallId());
         assertTrue(result.getOutput().contains("nope"));

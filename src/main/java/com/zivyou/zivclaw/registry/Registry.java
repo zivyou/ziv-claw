@@ -1,4 +1,4 @@
-package com.zivyou.zivclaw.tool;
+package com.zivyou.zivclaw.registry;
 
 import com.zivyou.zivclaw.context.Context;
 import com.zivyou.zivclaw.message.ToolCall;

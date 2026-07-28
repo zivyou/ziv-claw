@@ -1,4 +1,4 @@
-package com.zivyou.zivclaw.tool;
+package com.zivyou.zivclaw.registry;
 
 import lombok.Getter;
 

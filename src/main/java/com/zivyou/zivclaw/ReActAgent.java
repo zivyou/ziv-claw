@@ -4,13 +4,12 @@ import com.zivyou.zivclaw.context.Context;
 import com.zivyou.zivclaw.message.Message;
 import com.zivyou.zivclaw.message.Role;
 import com.zivyou.zivclaw.provider.Provider;
-import com.zivyou.zivclaw.tool.Registry;
+import com.zivyou.zivclaw.registry.Registry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -18,11 +17,10 @@ import java.util.List;
 public class ReActAgent {
     private final Provider provider;
     private final Registry registry;
-    private final String workDir;
     private final Boolean enableThinking;
 
     public void start(Context context, String userPrompt) {
-        log.info("[Agent] agent启动, pwd: {}", workDir);
+        log.info("[Agent] agent启动, pwd: {}", context.getWorkDir());
         List<Message> messages = new ArrayList<>();
         messages.add(
                 Message.builder()
