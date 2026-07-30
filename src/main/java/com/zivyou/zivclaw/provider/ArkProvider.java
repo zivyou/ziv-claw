@@ -1,5 +1,6 @@
 package com.zivyou.zivclaw.provider;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,6 +12,7 @@ import com.zivyou.zivclaw.message.Message;
 import com.zivyou.zivclaw.message.Role;
 import com.zivyou.zivclaw.message.ToolCall;
 import com.zivyou.zivclaw.registry.ToolDefinition;
+import io.gsonfire.util.JsonUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
@@ -22,7 +24,8 @@ public class ArkProvider implements Provider, AutoCloseable {
     private final String baseUrl = "https://ark.cn-beijing.volces.com/api/plan/v3";
     private final String apiKey = System.getenv("ARK_AGENT_KEY");
     private final ArkService arkService;
-    private final static ObjectMapper objectMapper = new ObjectMapper();
+    private final static ObjectMapper objectMapper =
+            new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
     public ArkProvider() {
         this.arkService = ArkService.builder().baseUrl(baseUrl)
@@ -35,12 +38,23 @@ public class ArkProvider implements Provider, AutoCloseable {
 
     @Override
     public Message generate(Context context, List<Message> messages, List<ToolDefinition> toolDefinitions) {
-        ChatCompletionRequest request = ChatCompletionRequest.builder().model("ark-code-latest")
-                .messages(messages.stream().map(ArkProvider::convert).toList())
-                .tools(toolDefinitions.stream().map(ArkProvider::convert).toList())
-                .build();
-        var response = arkService.createChatCompletion(request).getChoices().get(0).getMessage();
-        return convert(response);
+        var request = ChatCompletionRequest.builder().model("ark-code-latest")
+                .messages(messages.stream().map(ArkProvider::convert).toList());
+        if (toolDefinitions != null && !toolDefinitions.isEmpty()) {
+            request.tools(toolDefinitions.stream().map(ArkProvider::convert).toList());
+        }
+
+        try {
+            var response = arkService.createChatCompletion(request.build()).getChoices().get(0).getMessage();
+            return convert(response);
+        } catch (Exception e) {
+            try {
+                log.error("akr invoke fail! request: {}", objectMapper.writeValueAsString(request.build()), e);
+            } catch (JsonProcessingException ex) {
+                throw new RuntimeException(ex);
+            }
+            throw new RuntimeException("ark invoke failed!");
+        }
     }
 
     private static ChatTool convert(ToolDefinition toolDefinition) {
@@ -100,13 +114,19 @@ public class ArkProvider implements Provider, AutoCloseable {
             }
         }
 
-        return ChatMessage.builder()
+        ChatMessage.Builder builder = ChatMessage.builder()
                 .role(toArkRole(message.getRole()))
                 .content(message.getContent())
-                .name(message.getName())
                 .toolCalls(arkToolCalls)
-                .toolCallId(message.getToolCallId())
-                .build();
+                .toolCallId(message.getToolCallId());
+
+        // `name` 只对 system/user/assistant 有意义；OpenAI/Ark 的 tool message schema
+        // 不带 name 字段，强行序列化过去会被网关以 400 拒掉。
+        if (message.getRole() != Role.TOOL && message.getName() != null) {
+            builder.name(message.getName());
+        }
+
+        return builder.build();
     }
 
     private static Role toLocalRole(ChatMessageRole role) {
