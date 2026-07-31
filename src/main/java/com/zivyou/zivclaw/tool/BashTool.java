@@ -6,7 +6,9 @@ import com.zivyou.zivclaw.registry.AgentTool;
 import com.zivyou.zivclaw.registry.ToolResult;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -23,11 +25,16 @@ public class BashTool extends AbstractTool<BashToolArg> {
         var processBuilder = new ProcessBuilder("bash", "-c", cmd);
         try {
             var process = processBuilder.start();
+            String line; StringBuilder sb = new StringBuilder();
+            var reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            while ((line = reader.readLine()) != null) {
+                sb.append(line).append("\n");
+            }
             var ret = process.waitFor(30, TimeUnit.SECONDS);
             if (!ret) {
                 return ToolResult.error("命令执行超时！");
             }
-            return ToolResult.ok("bash命令执行成功");
+            return ToolResult.ok(sb.toString());
         } catch (InterruptedException e) {
             log.error("命令执行失败： {},  InterruptedException: {}", cmd, e.getMessage());
             return ToolResult.error("命令执行失败， InterruptedException");
