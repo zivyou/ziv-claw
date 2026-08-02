@@ -3,6 +3,7 @@ package com.zivyou.zivclaw;
 import com.zivyou.zivclaw.context.Context;
 import com.zivyou.zivclaw.message.Message;
 import com.zivyou.zivclaw.message.Role;
+import com.zivyou.zivclaw.prompt.DefaultPromptComposer;
 import com.zivyou.zivclaw.provider.Provider;
 import com.zivyou.zivclaw.registry.Registry;
 import com.zivyou.zivclaw.reporter.Reporter;
@@ -31,16 +32,14 @@ public class ReActAgent {
     public void start(Context context, String userPrompt) {
         log.info("[Agent] agent启动, pwd: {}", context.getWorkDir());
         List<Message> messages = new CopyOnWriteArrayList<>();
+        var systemPromptComposer = new DefaultPromptComposer(context.getWorkDir());
         messages.add(
-                Message.builder()
-                        .role(Role.SYSTEM)
-                        .content("你是ziv-claw,一个专业的coding助手,你可以自主调用提供给你的tools")
-                        .build()
+                systemPromptComposer.compose()
         );
         messages.add(
                 Message.builder().role(Role.USER).content(userPrompt).build()
         );
-        int turn = 0;
+
         while (true) {
             log.info("[Agent] thinking...");
             var tools = registry.getAvailableTools();
@@ -77,7 +76,7 @@ public class ReActAgent {
                 return null;
             });
             tasks.join();
-            turn++;
         }
+        executorService.shutdown();
     }
 }
