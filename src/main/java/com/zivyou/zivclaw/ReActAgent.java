@@ -5,6 +5,8 @@ import com.zivyou.zivclaw.message.Message;
 import com.zivyou.zivclaw.message.Role;
 import com.zivyou.zivclaw.provider.Provider;
 import com.zivyou.zivclaw.registry.Registry;
+import com.zivyou.zivclaw.reporter.Reporter;
+import com.zivyou.zivclaw.util.JsonUtil;
 import com.zivyou.zivclaw.util.NamedThreadFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +20,7 @@ import java.util.concurrent.*;
 public class ReActAgent {
     private final Provider provider;
     private final Registry registry;
-    private final Boolean enableThinking;
+    private final Reporter reporter;
     private final ExecutorService executorService =
             new ThreadPoolExecutor(10, 20,
                     60, TimeUnit.SECONDS,
@@ -48,16 +50,17 @@ public class ReActAgent {
                 return;
             }
             messages.add(response);
-            log.info("模型思考过程: {}", response);
+            reporter.report(response.getContent());
 
             if (CollectionUtils.isEmpty(response.getToolCalls())) {
                 log.info("[Agent] 任务完成,退出循环.");
                 break;
             }
-            log.debug("模型调用工具: {}", response.getToolCalls());
+            reporter.report("模型调用工具: " + JsonUtil.stringify(response.getToolCalls()));
             var futures = response.getToolCalls().stream().map(toolCall -> CompletableFuture.runAsync(() -> {
                 log.info(" -> 工具调用: {}, 参数: {}", toolCall.getFunction().getName(), toolCall.getFunction().getArguments());
                 var result = registry.execute(context, toolCall);
+                reporter.report(String.format("工具调用结果: %s", JsonUtil.stringify(result)));
                 if (result == null) {
                     log.error(" -> 工具: {} 执行失败!", toolCall.getFunction().getName());
                 } else {

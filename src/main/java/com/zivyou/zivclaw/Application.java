@@ -3,6 +3,7 @@ package com.zivyou.zivclaw;
 import com.zivyou.zivclaw.context.Context;
 import com.zivyou.zivclaw.provider.ArkProvider;
 import com.zivyou.zivclaw.registry.DefaultRegistry;
+import com.zivyou.zivclaw.reporter.ConsoleReporter;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -14,7 +15,8 @@ public class Application {
         var userPrompt = "hello! 帮我看下src/main/java/com/zivyou/zivclaw/下有几个文件，每个文件分别有多大";
         var provider = new ArkProvider();
         var registry = DefaultRegistry.getInstance();
-        ReActAgent loop = new ReActAgent(provider, registry,  true);
+        var reporter = new ConsoleReporter();
+        ReActAgent loop = new ReActAgent(provider, registry,  reporter);
         loop.start(context, userPrompt);
         log.error("SYSTEM ERROR: react loop corrupted!");
     }
