@@ -6,5 +6,6 @@ import lombok.Data;
 @Data
 @Builder
 public class Context {
+    String sessionId;
     String workDir;
 }

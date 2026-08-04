@@ -7,6 +7,7 @@ import com.zivyou.zivclaw.prompt.DefaultPromptComposer;
 import com.zivyou.zivclaw.provider.Provider;
 import com.zivyou.zivclaw.registry.Registry;
 import com.zivyou.zivclaw.reporter.Reporter;
+import com.zivyou.zivclaw.session.SessionManager;
 import com.zivyou.zivclaw.util.JsonUtil;
 import com.zivyou.zivclaw.util.NamedThreadFactory;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,8 @@ public class ReActAgent {
     private final Provider provider;
     private final Registry registry;
     private final Reporter reporter;
+    private final SessionManager sessionManager;
+
     private final ExecutorService executorService =
             new ThreadPoolExecutor(10, 20,
                     60, TimeUnit.SECONDS,
@@ -36,6 +39,13 @@ public class ReActAgent {
         messages.add(
                 systemPromptComposer.compose()
         );
+        var session = sessionManager.getOrCreateSession(context.getSessionId(), context.getWorkDir());
+        if (session == null) {
+            log.error("[SessionManager]: getOrCreateSession failed: {}", JsonUtil.stringify(context));
+            return;
+        }
+        context.setSessionId(session.getId());
+        messages.addAll(session.getWorkingMemory());
         messages.add(
                 Message.builder().role(Role.USER).content(userPrompt).build()
         );
@@ -49,6 +59,7 @@ public class ReActAgent {
                 return;
             }
             messages.add(response);
+            session.appendSession(response);
             reporter.report(response.getContent());
 
             if (CollectionUtils.isEmpty(response.getToolCalls())) {
@@ -66,6 +77,7 @@ public class ReActAgent {
                     log.info(" -> 工具: {} 执行成功: {}", toolCall.getFunction().getName(), result);
                     var message = Message.builder().role(Role.TOOL).name(toolCall.getFunction().getName()).toolCallId(result.getToolCallId()).content(result.getOutput()).build();
                     messages.add(message);
+                    session.appendSession(message);
                 }
             }, executorService));
             var tasks = CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new));
@@ -78,5 +90,6 @@ public class ReActAgent {
             tasks.join();
         }
         executorService.shutdown();
+        sessionManager.save(context.getSessionId());
     }
 }
