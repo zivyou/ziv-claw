@@ -32,10 +32,22 @@ public class DefaultSessionManager implements SessionManager {
         }
 
         if (!sessions.containsKey(id)) {
-            return null;
+            return load(id);
         }
 
         return (sessions.get(id));
+    }
+
+    private Session load(String id) {
+        String filePath = String.format("./.session/%s", id);
+        Path path = Paths.get(filePath);
+        try {
+            var sessionJson = Files.readString(path);
+            return JsonUtil.parse(sessionJson, Session.class);
+        } catch (IOException e) {
+            log.error("session load failed! ", e);
+            return null;
+        }
     }
 
     @Override

@@ -15,4 +15,13 @@ public class JsonUtil {
             return "[JsonProcessingException]";
         }
     }
+
+    public static <T> T parse(String jsonStr, Class<T> tClass) {
+        try {
+            return objectMapper.readValue(jsonStr, tClass);
+        } catch (JsonProcessingException e) {
+            log.error("JsonProcessingException: ", e);
+            return null;
+        }
+    }
 }
