@@ -1,6 +1,6 @@
 package com.zivyou.zivclaw.tool;
 
-import com.zivyou.zivclaw.context.Context;
+import com.zivyou.zivclaw.context.AgentContext;
 import com.zivyou.zivclaw.registry.AbstractTool;
 import com.zivyou.zivclaw.registry.AgentTool;
 import com.zivyou.zivclaw.registry.ToolResult;
@@ -18,8 +18,8 @@ import java.util.concurrent.TimeUnit;
 )
 public class BashTool extends AbstractTool<BashToolArg> {
     @Override
-    public ToolResult invoke(Context context, BashToolArg args) {
-        var workDir = context.getWorkDir();
+    public ToolResult invoke(AgentContext agentContext, BashToolArg args) {
+        var workDir = agentContext.getWorkDir();
         var cmd = args.getCmd();
 
         var processBuilder = new ProcessBuilder("bash", "-c", cmd);

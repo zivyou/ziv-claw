@@ -447,7 +447,7 @@ import com.volcengine.ark.runtime.model.completion.chat.ChatMessage;
 import com.volcengine.ark.runtime.model.completion.chat.ChatMessageRole;
 import com.volcengine.ark.runtime.model.completion.chat.ChatToolCall;
 import com.volcengine.ark.runtime.service.ArkService;
-import com.zivyou.zivclaw.context.Context;
+import com.zivyou.zivclaw.context.AgentContext;
 import com.zivyou.zivclaw.message.Function;
 import com.zivyou.zivclaw.message.Message;
 import com.zivyou.zivclaw.message.Role;
@@ -475,7 +475,7 @@ public class ArkProvider implements Provider, AutoCloseable {
     }
 
     @Override
-    public Message generate(Context context, List<Message> messages, List<ToolDefinition> toolDefinitions) {
+    public Message generate(AgentContext agentContext, List<Message> messages, List<ToolDefinition> toolDefinitions) {
         ChatCompletionRequest request = ChatCompletionRequest.builder().build();
         var response = arkService.createChatCompletion(request).getChoices().get(0).getMessage();
         return convert(response);

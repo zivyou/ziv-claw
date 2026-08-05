@@ -1,6 +1,6 @@
 package com.zivyou.zivclaw.tool;
 
-import com.zivyou.zivclaw.context.Context;
+import com.zivyou.zivclaw.context.AgentContext;
 import com.zivyou.zivclaw.registry.ToolResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,12 +21,12 @@ class EditToolTest {
     Path workDir;
 
     private EditTool tool;
-    private Context context;
+    private AgentContext agentContext;
 
     @BeforeEach
     void setUp() {
         tool = new EditTool();
-        context = Context.builder().workDir(workDir.toString()).build();
+        agentContext = AgentContext.builder().workDir(workDir.toString()).build();
     }
 
     private Path writeFile(String relative, String content) throws IOException {
@@ -53,7 +53,7 @@ class EditToolTest {
     void edit_replacesLiteralOldContent_evenWhenItLooksLikeRegex() throws IOException {
         Path file = writeFile("a.txt", "price is $9.99 (final).\n");
 
-        ToolResult result = tool.invoke(context, args("a.txt", "$9.99 (final)", "$10.00"));
+        ToolResult result = tool.invoke(agentContext, args("a.txt", "$9.99 (final)", "$10.00"));
 
         assertFalse(result.isError(), () -> "unexpected error: " + result.getOutput());
         assertEquals("price is $10.00.\n", read(file));
@@ -65,7 +65,7 @@ class EditToolTest {
         String original = "line1\nline2\nline3\nline4\n";
         Path file = writeFile("multi.txt", original);
 
-        ToolResult result = tool.invoke(context, args("multi.txt", "line2\nline3", "LINE_2_3"));
+        ToolResult result = tool.invoke(agentContext, args("multi.txt", "line2\nline3", "LINE_2_3"));
 
         assertFalse(result.isError(), () -> "unexpected error: " + result.getOutput());
         assertEquals("line1\nLINE_2_3\nline4\n", read(file));
@@ -77,7 +77,7 @@ class EditToolTest {
         String original = "foo\nfoo\nbar\n";
         Path file = writeFile("dup.txt", original);
 
-        ToolResult result = tool.invoke(context, args("dup.txt", "foo", "baz"));
+        ToolResult result = tool.invoke(agentContext, args("dup.txt", "foo", "baz"));
 
         assertTrue(result.isError());
         assertTrue(result.getOutput().contains("不止一处"), result.getOutput());
@@ -88,7 +88,7 @@ class EditToolTest {
     void edit_returnsError_whenOldContentNotFound() throws IOException {
         writeFile("nf.txt", "hello world\n");
 
-        ToolResult result = tool.invoke(context, args("nf.txt", "missing", "x"));
+        ToolResult result = tool.invoke(agentContext, args("nf.txt", "missing", "x"));
 
         assertTrue(result.isError());
         assertTrue(result.getOutput().contains("未找到"), result.getOutput());
@@ -96,7 +96,7 @@ class EditToolTest {
 
     @Test
     void edit_returnsError_whenFileNotExists() {
-        ToolResult result = tool.invoke(context, args("nope.txt", "a", "b"));
+        ToolResult result = tool.invoke(agentContext, args("nope.txt", "a", "b"));
 
         assertTrue(result.isError());
         assertTrue(result.getOutput().contains("file not exists"), result.getOutput());
@@ -109,7 +109,7 @@ class EditToolTest {
         Files.writeString(outside, "should-not-change", StandardCharsets.UTF_8);
         try {
             String rel = "../" + outside.getFileName().toString();
-            ToolResult result = tool.invoke(context, args(rel, "should-not-change", "hacked"));
+            ToolResult result = tool.invoke(agentContext, args(rel, "should-not-change", "hacked"));
 
             assertTrue(result.isError());
             assertTrue(result.getOutput().contains("escapes work dir"), result.getOutput());
@@ -124,7 +124,7 @@ class EditToolTest {
         Path outside = Files.createTempFile("edit-tool-abs", ".txt");
         Files.writeString(outside, "keep", StandardCharsets.UTF_8);
         try {
-            ToolResult result = tool.invoke(context,
+            ToolResult result = tool.invoke(agentContext,
                     args(outside.toAbsolutePath().toString(), "keep", "hacked"));
 
             assertTrue(result.isError());
@@ -139,7 +139,7 @@ class EditToolTest {
     void edit_isNoop_whenOldEqualsNew() throws IOException {
         Path file = writeFile("same.txt", "content\n");
 
-        ToolResult result = tool.invoke(context, args("same.txt", "content", "content"));
+        ToolResult result = tool.invoke(agentContext, args("same.txt", "content", "content"));
 
         assertFalse(result.isError());
         assertTrue(result.getOutput().contains("no changes"), result.getOutput());
@@ -151,7 +151,7 @@ class EditToolTest {
         // 之前 replaceAll 会把 $1、\\ 当替换语法处理；改成字面拼接后应完整保留
         Path file = writeFile("lit.txt", "TOKEN\n");
 
-        ToolResult result = tool.invoke(context, args("lit.txt", "TOKEN", "$1 and \\n literal"));
+        ToolResult result = tool.invoke(agentContext, args("lit.txt", "TOKEN", "$1 and \\n literal"));
 
         assertFalse(result.isError(), () -> "unexpected error: " + result.getOutput());
         assertEquals("$1 and \\n literal\n", read(file));

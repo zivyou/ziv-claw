@@ -1,6 +1,6 @@
 package com.zivyou.zivclaw.tool;
 
-import com.zivyou.zivclaw.context.Context;
+import com.zivyou.zivclaw.context.AgentContext;
 import com.zivyou.zivclaw.registry.AbstractTool;
 import com.zivyou.zivclaw.registry.AgentTool;
 import com.zivyou.zivclaw.registry.ToolResult;
@@ -17,8 +17,8 @@ import java.nio.file.Paths;
 @AgentTool(name = "Edit", description = "文件编辑工具，核心逻辑是对指定文本块执行替换操作")
 public class EditTool extends AbstractTool<EditToolArg> {
     @Override
-    public ToolResult invoke(Context context, EditToolArg args) {
-        Path basePath = Paths.get(context.getWorkDir()).toAbsolutePath().normalize();
+    public ToolResult invoke(AgentContext agentContext, EditToolArg args) {
+        Path basePath = Paths.get(agentContext.getWorkDir()).toAbsolutePath().normalize();
         Path filePath = basePath.resolve(args.getPath()).normalize();
 
         // 防止路径逃逸出工作目录

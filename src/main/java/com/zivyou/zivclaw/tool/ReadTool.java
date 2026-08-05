@@ -1,6 +1,6 @@
 package com.zivyou.zivclaw.tool;
 
-import com.zivyou.zivclaw.context.Context;
+import com.zivyou.zivclaw.context.AgentContext;
 import com.zivyou.zivclaw.registry.AbstractTool;
 import com.zivyou.zivclaw.registry.AgentTool;
 import com.zivyou.zivclaw.registry.ToolResult;
@@ -13,8 +13,8 @@ import java.nio.file.Paths;
 @AgentTool(name = "Read", description = "read file content from the file-system")
 public class ReadTool extends AbstractTool<ReadToolArg> {
     @Override
-    public ToolResult invoke(Context context, ReadToolArg args) {
-        var basePath = Paths.get(context.getWorkDir());
+    public ToolResult invoke(AgentContext agentContext, ReadToolArg args) {
+        var basePath = Paths.get(agentContext.getWorkDir());
         var filePath = Paths.get(args.getPath());
         var fullPath = basePath.resolve(filePath);
         try (var br = new BufferedReader(new FileReader(fullPath.toFile()))) {

@@ -6,13 +6,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.volcengine.ark.runtime.model.completion.chat.*;
 import com.volcengine.ark.runtime.service.ArkService;
-import com.zivyou.zivclaw.context.Context;
+import com.zivyou.zivclaw.context.AgentContext;
 import com.zivyou.zivclaw.message.Function;
 import com.zivyou.zivclaw.message.Message;
 import com.zivyou.zivclaw.message.Role;
 import com.zivyou.zivclaw.message.ToolCall;
 import com.zivyou.zivclaw.registry.ToolDefinition;
-import io.gsonfire.util.JsonUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
@@ -37,7 +36,7 @@ public class ArkProvider implements Provider, AutoCloseable {
     }
 
     @Override
-    public Message generate(Context context, List<Message> messages, List<ToolDefinition> toolDefinitions) {
+    public Message generate(AgentContext agentContext, List<Message> messages, List<ToolDefinition> toolDefinitions) {
         var request = ChatCompletionRequest.builder().model("ark-code-latest")
                 .messages(messages.stream().map(ArkProvider::convert).toList());
         if (toolDefinitions != null && !toolDefinitions.isEmpty()) {

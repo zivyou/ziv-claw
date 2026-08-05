@@ -1,23 +1,15 @@
 package com.zivyou.zivclaw;
 
-import com.zivyou.zivclaw.context.Context;
-import com.zivyou.zivclaw.provider.ArkProvider;
-import com.zivyou.zivclaw.registry.DefaultRegistry;
-import com.zivyou.zivclaw.reporter.ConsoleReporter;
-import com.zivyou.zivclaw.session.DefaultSessionManager;
+import com.zivyou.zivclaw.context.AgentContext;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class Application {
     public static void main(String[] args) {
-        var context = Context.builder().workDir(System.getProperty("user.dir")).build();
+        var context = AgentContext.builder().workDir(System.getProperty("user.dir")).build();
         // var userPrompt = "hello! 帮我看下src/main/java/com/zivyou/zivclaw/README.md这个文件，我在其中预留的邮箱地址有问题，请帮我修改成youziqi529@outlook.com";
         var userPrompt = "hello! 帮我看下src/main/java/com/zivyou/zivclaw/下有几个文件，每个文件分别有多大";
-        var provider = new ArkProvider();
-        var registry = DefaultRegistry.getInstance();
-        var reporter = new ConsoleReporter();
-        var sessionManager = new DefaultSessionManager();
-        ReActAgent agent = new ReActAgent(provider, registry,  reporter, sessionManager);
+        ReActAgent agent = new ReActAgent();
         agent.start(context, userPrompt);
         log.error("SYSTEM ERROR: react loop corrupted!");
     }

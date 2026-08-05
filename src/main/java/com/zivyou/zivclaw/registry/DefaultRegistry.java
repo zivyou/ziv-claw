@@ -8,7 +8,7 @@ import com.github.victools.jsonschema.generator.SchemaGeneratorConfigBuilder;
 import com.github.victools.jsonschema.generator.SchemaVersion;
 import com.github.victools.jsonschema.module.jackson.JacksonModule;
 import com.github.victools.jsonschema.module.jackson.JacksonOption;
-import com.zivyou.zivclaw.context.Context;
+import com.zivyou.zivclaw.context.AgentContext;
 import com.zivyou.zivclaw.message.ToolCall;
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Reflections;
@@ -46,7 +46,7 @@ public class DefaultRegistry implements Registry {
     /**
      * 生产路径:扫描 classpath 上所有 {@code @AgentTool} 类完成注册。
      */
-    private DefaultRegistry() {
+    public DefaultRegistry() {
         this(discoverToolClasses());
     }
 
@@ -171,7 +171,7 @@ public class DefaultRegistry implements Registry {
     }
 
     @Override
-    public ToolResult execute(Context context, ToolCall toolCall) {
+    public ToolResult execute(AgentContext agentContext, ToolCall toolCall) {
         String toolCallId = toolCall.getId();
         String name = toolCall.getFunction() == null ? null : toolCall.getFunction().getName();
         if (name == null) {
@@ -182,7 +182,7 @@ public class DefaultRegistry implements Registry {
             return ToolResult.error(toolCallId, "未知的工具名称: " + name);
         }
         try {
-            return invokeTyped(tool, name, context, toolCall.getFunction().getArguments(), toolCallId);
+            return invokeTyped(tool, name, agentContext, toolCall.getFunction().getArguments(), toolCallId);
         } catch (Exception e) {
             log.error("[Registry] 工具 {} 执行失败", name, e);
             return ToolResult.error(toolCallId,
@@ -197,7 +197,7 @@ public class DefaultRegistry implements Registry {
      * {@code name} 由调用方从 tool_call / 注册表拿到,只用于错误信息 —— 工具本身
      * 不再暴露 {@code name()} 方法(见 {@link AgentTool})。
      */
-    private <A> ToolResult invokeTyped(Tool<A> tool, String name, Context context,
+    private <A> ToolResult invokeTyped(Tool<A> tool, String name, AgentContext agentContext,
                                        String rawJsonArgs, String toolCallId) throws Exception {
         A args;
         if (rawJsonArgs == null || rawJsonArgs.isBlank()) {
@@ -205,7 +205,7 @@ public class DefaultRegistry implements Registry {
         } else {
             args = objectMapper.readValue(rawJsonArgs, tool.argsType());
         }
-        ToolResult result = tool.invoke(context, args);
+        ToolResult result = tool.invoke(agentContext, args);
         if (result == null) {
             return ToolResult.error(toolCallId, "工具 " + name + " 返回了 null");
         }

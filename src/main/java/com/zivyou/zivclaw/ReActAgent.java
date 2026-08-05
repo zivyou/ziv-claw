@@ -1,12 +1,17 @@
 package com.zivyou.zivclaw;
 
-import com.zivyou.zivclaw.context.Context;
+import com.zivyou.zivclaw.context.AgentContext;
+import com.zivyou.zivclaw.context.ContextCompactor;
 import com.zivyou.zivclaw.message.Message;
 import com.zivyou.zivclaw.message.Role;
 import com.zivyou.zivclaw.prompt.DefaultPromptComposer;
+import com.zivyou.zivclaw.provider.ArkProvider;
 import com.zivyou.zivclaw.provider.Provider;
+import com.zivyou.zivclaw.registry.DefaultRegistry;
 import com.zivyou.zivclaw.registry.Registry;
+import com.zivyou.zivclaw.reporter.ConsoleReporter;
 import com.zivyou.zivclaw.reporter.Reporter;
+import com.zivyou.zivclaw.session.DefaultSessionManager;
 import com.zivyou.zivclaw.session.SessionManager;
 import com.zivyou.zivclaw.util.JsonUtil;
 import com.zivyou.zivclaw.util.NamedThreadFactory;
@@ -20,10 +25,11 @@ import java.util.concurrent.*;
 @Slf4j
 @RequiredArgsConstructor
 public class ReActAgent {
-    private final Provider provider;
-    private final Registry registry;
-    private final Reporter reporter;
-    private final SessionManager sessionManager;
+    private final Provider provider = new ArkProvider();
+    private final Registry registry = new DefaultRegistry();
+    private final Reporter reporter = new ConsoleReporter();
+    private final SessionManager sessionManager = new DefaultSessionManager();
+    private final ContextCompactor contextCompactor = new ContextCompactor();
 
     private final ExecutorService executorService =
             new ThreadPoolExecutor(10, 20,
@@ -32,28 +38,29 @@ public class ReActAgent {
                     new NamedThreadFactory("tool-exec")
             );
 
-    public void start(Context context, String userPrompt) {
-        log.info("[Agent] agent启动, pwd: {}", context.getWorkDir());
-        List<Message> messages = new CopyOnWriteArrayList<>();
-        var systemPromptComposer = new DefaultPromptComposer(context.getWorkDir());
-        messages.add(
+    public void start(AgentContext agentContext, String userPrompt) {
+        log.info("[Agent] agent启动, pwd: {}", agentContext.getWorkDir());
+        List<Message> history = new CopyOnWriteArrayList<>();
+        var systemPromptComposer = new DefaultPromptComposer(agentContext.getWorkDir());
+        history.add(
                 systemPromptComposer.compose()
         );
-        var session = sessionManager.getOrCreateSession(context.getSessionId(), context.getWorkDir());
+        var session = sessionManager.getOrCreateSession(agentContext.getSessionId(), agentContext.getWorkDir());
         if (session == null) {
-            log.error("[SessionManager]: getOrCreateSession failed: {}", JsonUtil.stringify(context));
+            log.error("[SessionManager]: getOrCreateSession failed: {}", JsonUtil.stringify(agentContext));
             return;
         }
-        context.setSessionId(session.getId());
-        messages.addAll(session.getWorkingMemory());
-        messages.add(
+        agentContext.setSessionId(session.getId());
+        history.addAll(session.getWorkingMemory());
+        history.add(
                 Message.builder().role(Role.USER).content(userPrompt).build()
         );
 
         while (true) {
             log.info("[Agent] thinking...");
             var tools = registry.getAvailableTools();
-            var response = provider.generate(context, messages, tools);
+            List<Message> messages = contextCompactor.compact(agentContext, history);
+            var response = provider.generate(agentContext, messages, tools);
             if (response == null) {
                 log.error("模型调用失败!");
                 return;
@@ -69,7 +76,7 @@ public class ReActAgent {
             reporter.report("模型调用工具: " + JsonUtil.stringify(response.getToolCalls()));
             var futures = response.getToolCalls().stream().map(toolCall -> CompletableFuture.runAsync(() -> {
                 log.info(" -> 工具调用: {}, 参数: {}", toolCall.getFunction().getName(), toolCall.getFunction().getArguments());
-                var result = registry.execute(context, toolCall);
+                var result = registry.execute(agentContext, toolCall);
                 reporter.report(String.format("工具调用结果: %s", JsonUtil.stringify(result)));
                 if (result == null) {
                     log.error(" -> 工具: {} 执行失败!", toolCall.getFunction().getName());
@@ -88,8 +95,9 @@ public class ReActAgent {
                 return null;
             });
             tasks.join();
+            history = messages;
         }
         executorService.shutdown();
-        sessionManager.save(context.getSessionId());
+        sessionManager.save(agentContext.getSessionId());
     }
 }

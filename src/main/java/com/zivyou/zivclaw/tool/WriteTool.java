@@ -1,6 +1,6 @@
 package com.zivyou.zivclaw.tool;
 
-import com.zivyou.zivclaw.context.Context;
+import com.zivyou.zivclaw.context.AgentContext;
 import com.zivyou.zivclaw.registry.AbstractTool;
 import com.zivyou.zivclaw.registry.AgentTool;
 import com.zivyou.zivclaw.registry.ToolResult;
@@ -13,8 +13,8 @@ import java.nio.file.Paths;
 @AgentTool(name = "Write", description = "创建文件，或者重写一个文件")
 public class WriteTool extends AbstractTool<WriteToolArg> {
     @Override
-    public ToolResult invoke(Context context, WriteToolArg args) {
-        var basePath = Paths.get(context.getWorkDir());
+    public ToolResult invoke(AgentContext agentContext, WriteToolArg args) {
+        var basePath = Paths.get(agentContext.getWorkDir());
         var relativePath = Paths.get(args.getPath());
         var filePath = basePath.resolve(relativePath);
 
