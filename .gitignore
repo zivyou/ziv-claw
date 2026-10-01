@@ -25,6 +25,8 @@ hs_err_pid*
 replay_pid*
 
 .idea/
-doc/
+docs/
 .claude
 .session
+
+zivclaw.iml

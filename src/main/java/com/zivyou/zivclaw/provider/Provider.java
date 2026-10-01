@@ -6,6 +6,6 @@ import com.zivyou.zivclaw.registry.ToolDefinition;
 
 import java.util.List;
 
-public interface Provider {
+public interface Provider extends AutoCloseable {
     Message generate(AgentContext agentContext, List<Message> messages, List<ToolDefinition> toolDefinitions);
 }

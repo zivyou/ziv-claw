@@ -21,6 +21,7 @@ import org.apache.commons.collections4.CollectionUtils;
 
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -96,8 +97,21 @@ public class ReActAgent {
             });
             tasks.join();
             history = messages;
+            sessionManager.save(agentContext.getSessionId());
+        }
+    }
+
+    private final AtomicBoolean shutdownCalled = new AtomicBoolean(false);
+
+    public void shutdown() {
+        if (!shutdownCalled.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            provider.close();
+        } catch (Exception e) {
+            log.warn("provider close失败", e);
         }
         executorService.shutdown();
-        sessionManager.save(agentContext.getSessionId());
     }
 }

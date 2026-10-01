@@ -43,7 +43,11 @@ public class DefaultSessionManager implements SessionManager {
         Path path = Paths.get(filePath);
         try {
             var sessionJson = Files.readString(path);
-            return JsonUtil.parse(sessionJson, Session.class);
+            Session session = JsonUtil.parse(sessionJson, Session.class);
+            if (session != null) {
+                sessions.put(id, session);
+            }
+            return session;
         } catch (IOException e) {
             log.error("session load failed! ", e);
             return null;
@@ -52,7 +56,9 @@ public class DefaultSessionManager implements SessionManager {
 
     @Override
     public Boolean save(String id) {
-        if (!sessions.containsKey(id)) return false;
+        if (!sessions.containsKey(id)) {
+            return false;
+        }
         String filePath = String.format("./.session/%s", id);
         Path path = Paths.get(filePath);
         try {
