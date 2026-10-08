@@ -30,3 +30,4 @@ docs/
 .session
 
 zivclaw.iml
+dependency-reduced-pom.xml
