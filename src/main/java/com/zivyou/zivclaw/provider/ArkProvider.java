@@ -11,6 +11,8 @@ import com.zivyou.zivclaw.message.Function;
 import com.zivyou.zivclaw.message.Message;
 import com.zivyou.zivclaw.message.Role;
 import com.zivyou.zivclaw.message.ToolCall;
+import com.zivyou.zivclaw.model.ChatModel;
+import com.zivyou.zivclaw.model.ModelConfig;
 import com.zivyou.zivclaw.registry.ToolDefinition;
 import lombok.extern.slf4j.Slf4j;
 
@@ -19,14 +21,41 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
-public class ArkProvider implements Provider, AutoCloseable {
-    private final String baseUrl = "https://ark.cn-beijing.volces.com/api/plan/v3";
-    private final String apiKey = System.getenv("ARK_AGENT_KEY");
-    private final ArkService arkService;
+public class ArkProvider implements ChatModel {
+
+    private static final String DEFAULT_BASE_URL = "https://ark.cn-beijing.volces.com/api/plan/v3";
+    private static final String DEFAULT_MODEL = "ark-code-latest";
+    private static final String DEFAULT_DESC = "Volcengine Ark chat model";
+
     private final static ObjectMapper objectMapper =
             new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
+    private final String baseUrl;
+    private final String apiKey;
+    private final String modelName;
+    private final String desc;
+    private final ArkService arkService;
+
+    /** 保留无参构造：沿用历史默认值，apiKey 仍从环境变量读取。 */
     public ArkProvider() {
+        this(DEFAULT_BASE_URL, System.getenv("ARK_AGENT_KEY"), DEFAULT_MODEL, DEFAULT_DESC);
+    }
+
+    /** 由 SPI 工厂通过 {@link ModelConfig} 创建。 */
+    public ArkProvider(ModelConfig config) {
+        this(
+                config.getBaseUrl() != null ? config.getBaseUrl() : DEFAULT_BASE_URL,
+                config.getApiKey() != null ? config.getApiKey() : System.getenv("ARK_AGENT_KEY"),
+                config.getName() != null ? config.getName() : DEFAULT_MODEL,
+                config.getDesc() != null ? config.getDesc() : DEFAULT_DESC
+        );
+    }
+
+    private ArkProvider(String baseUrl, String apiKey, String modelName, String desc) {
+        this.baseUrl = baseUrl;
+        this.apiKey = apiKey;
+        this.modelName = modelName;
+        this.desc = desc;
         this.arkService = ArkService.builder().baseUrl(baseUrl)
                 .apiKey(apiKey)
                 .timeout(Duration.ofSeconds(1800))
@@ -36,13 +65,22 @@ public class ArkProvider implements Provider, AutoCloseable {
     }
 
     @Override
+    public String getName() {
+        return modelName;
+    }
+
+    @Override
+    public String getDesc() {
+        return desc;
+    }
+
+    @Override
     public Message generate(AgentContext agentContext, List<Message> messages, List<ToolDefinition> toolDefinitions) {
-        var request = ChatCompletionRequest.builder().model("ark-code-latest")
+        var request = ChatCompletionRequest.builder().model(modelName)
                 .messages(messages.stream().map(ArkProvider::convert).toList());
         if (toolDefinitions != null && !toolDefinitions.isEmpty()) {
             request.tools(toolDefinitions.stream().map(ArkProvider::convert).toList());
         }
-
         try {
             var response = arkService.createChatCompletion(request.build()).getChoices().get(0).getMessage();
             return convert(response);
@@ -77,7 +115,6 @@ public class ArkProvider implements Provider, AutoCloseable {
         }
         Role role = toLocalRole(chatMessage.getRole());
         String content = toLocalContent(chatMessage.getContent());
-
         List<ToolCall> localToolCalls = null;
         List<ChatToolCall> srcToolCalls = chatMessage.getToolCalls();
         if (srcToolCalls != null) {
@@ -86,7 +123,6 @@ public class ArkProvider implements Provider, AutoCloseable {
                 localToolCalls.add(toLocalToolCall(tc));
             }
         }
-
         return Message.builder()
                 .role(role)
                 .content(content)
@@ -103,7 +139,6 @@ public class ArkProvider implements Provider, AutoCloseable {
         if (message.getRefusal() != null) {
             throw new IllegalArgumentException("refusal is not supported by Ark ChatMessage");
         }
-
         List<ChatToolCall> arkToolCalls = null;
         List<ToolCall> srcToolCalls = message.getToolCalls();
         if (srcToolCalls != null) {
@@ -112,19 +147,16 @@ public class ArkProvider implements Provider, AutoCloseable {
                 arkToolCalls.add(toArkToolCall(tc));
             }
         }
-
         ChatMessage.Builder builder = ChatMessage.builder()
                 .role(toArkRole(message.getRole()))
                 .content(message.getContent())
                 .toolCalls(arkToolCalls)
                 .toolCallId(message.getToolCallId());
-
         // `name` 只对 system/user/assistant 有意义；OpenAI/Ark 的 tool message schema
         // 不带 name 字段，强行序列化过去会被网关以 400 拒掉。
         if (message.getRole() != Role.TOOL && message.getName() != null) {
             builder.name(message.getName());
         }
-
         return builder.build();
     }
 
@@ -198,7 +230,7 @@ public class ArkProvider implements Provider, AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         if (arkService != null) {
             arkService.shutdownExecutor();
         }

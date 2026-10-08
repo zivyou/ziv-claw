@@ -4,9 +4,12 @@ import com.zivyou.zivclaw.context.AgentContext;
 import com.zivyou.zivclaw.context.ContextCompactor;
 import com.zivyou.zivclaw.message.Message;
 import com.zivyou.zivclaw.message.Role;
+import com.zivyou.zivclaw.model.ChatModel;
+import com.zivyou.zivclaw.model.DefaultModelRegistry;
+import com.zivyou.zivclaw.model.ModelConfig;
+import com.zivyou.zivclaw.model.ModelRegistry;
+import com.zivyou.zivclaw.model.ModelType;
 import com.zivyou.zivclaw.prompt.DefaultPromptComposer;
-import com.zivyou.zivclaw.provider.ArkProvider;
-import com.zivyou.zivclaw.provider.Provider;
 import com.zivyou.zivclaw.registry.DefaultRegistry;
 import com.zivyou.zivclaw.registry.Registry;
 import com.zivyou.zivclaw.reporter.ConsoleReporter;
@@ -15,7 +18,6 @@ import com.zivyou.zivclaw.session.DefaultSessionManager;
 import com.zivyou.zivclaw.session.SessionManager;
 import com.zivyou.zivclaw.util.JsonUtil;
 import com.zivyou.zivclaw.util.NamedThreadFactory;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -24,14 +26,13 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
-@RequiredArgsConstructor
 public class ReActAgent {
-    private final Provider provider = new ArkProvider();
+
+    private final ModelRegistry modelRegistry;
     private final Registry registry = new DefaultRegistry();
     private final Reporter reporter = new ConsoleReporter();
     private final SessionManager sessionManager = new DefaultSessionManager();
     private final ContextCompactor contextCompactor = new ContextCompactor();
-
     private final ExecutorService executorService =
             new ThreadPoolExecutor(10, 20,
                     60, TimeUnit.SECONDS,
@@ -39,8 +40,24 @@ public class ReActAgent {
                     new NamedThreadFactory("tool-exec")
             );
 
+    /** 无参：沿用历史默认行为，注册并使用默认 Ark ChatModel。 */
+    public ReActAgent() {
+        this(new DefaultModelRegistry());
+        modelRegistry.register(ModelConfig.builder()
+                .provider("ark")
+                .type(ModelType.CHAT)
+                .name("ark-code-latest")
+                .build());
+    }
+
+    /** 注入注册表：由装配层决定有哪些可用模型。 */
+    public ReActAgent(ModelRegistry modelRegistry) {
+        this.modelRegistry = modelRegistry;
+    }
+
     public void start(AgentContext agentContext, String userPrompt) {
         log.info("[Agent] agent启动, pwd: {}", agentContext.getWorkDir());
+        ChatModel chatModel = modelRegistry.getDefaultChatModel();
         List<Message> history = new CopyOnWriteArrayList<>();
         var systemPromptComposer = new DefaultPromptComposer(agentContext.getWorkDir());
         history.add(
@@ -56,12 +73,11 @@ public class ReActAgent {
         history.add(
                 Message.builder().role(Role.USER).content(userPrompt).build()
         );
-
         while (true) {
             log.info("[Agent] thinking...");
             var tools = registry.getAvailableTools();
             List<Message> messages = contextCompactor.compact(agentContext, history);
-            var response = provider.generate(agentContext, messages, tools);
+            var response = chatModel.generate(agentContext, messages, tools);
             if (response == null) {
                 log.error("模型调用失败!");
                 return;
@@ -69,7 +85,6 @@ public class ReActAgent {
             messages.add(response);
             session.appendSession(response);
             reporter.report(response.getContent());
-
             if (CollectionUtils.isEmpty(response.getToolCalls())) {
                 log.info("[Agent] 任务完成,退出循环.");
                 break;
@@ -89,7 +104,7 @@ public class ReActAgent {
                 }
             }, executorService));
             var tasks = CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new));
-            tasks.thenAccept(v->{
+            tasks.thenAccept(v -> {
                 log.info("工具调用完成!");
             }).exceptionally(e -> {
                 log.error("工具调用失败！ {}", e.getMessage());
@@ -108,9 +123,9 @@ public class ReActAgent {
             return;
         }
         try {
-            provider.close();
+            modelRegistry.closeAll();
         } catch (Exception e) {
-            log.warn("provider close失败", e);
+            log.warn("modelRegistry close失败", e);
         }
         executorService.shutdown();
     }
