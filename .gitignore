@@ -31,3 +31,5 @@ docs/
 
 zivclaw.iml
 dependency-reduced-pom.xml
+
+**/application-local.yaml

@@ -5,7 +5,7 @@ import com.zivyou.zivclaw.context.ContextCompactor;
 import com.zivyou.zivclaw.message.Message;
 import com.zivyou.zivclaw.message.Role;
 import com.zivyou.zivclaw.prompt.DefaultPromptComposer;
-import com.zivyou.zivclaw.provider.ArkProvider;
+import com.zivyou.zivclaw.provider.DefaultProviderFactory;
 import com.zivyou.zivclaw.provider.Provider;
 import com.zivyou.zivclaw.registry.DefaultRegistry;
 import com.zivyou.zivclaw.registry.Registry;
@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 @RequiredArgsConstructor
 public class ReActAgent {
-    private final Provider provider = new ArkProvider();
+    private final Provider provider = DefaultProviderFactory.getProvider();
     private final Registry registry = new DefaultRegistry();
     private final Reporter reporter = new ConsoleReporter();
     private final SessionManager sessionManager = new DefaultSessionManager();

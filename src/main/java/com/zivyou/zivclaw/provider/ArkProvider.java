@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.volcengine.ark.runtime.model.completion.chat.*;
 import com.volcengine.ark.runtime.service.ArkService;
+import com.zivyou.zivclaw.config.ArkProviderConfig;
+import com.zivyou.zivclaw.config.ConfigLoader;
 import com.zivyou.zivclaw.context.AgentContext;
 import com.zivyou.zivclaw.message.Function;
 import com.zivyou.zivclaw.message.Message;
@@ -20,18 +22,17 @@ import java.util.List;
 
 @Slf4j
 public class ArkProvider implements Provider, AutoCloseable {
-    private final String baseUrl = "https://ark.cn-beijing.volces.com/api/plan/v3";
-    private final String apiKey = System.getenv("ARK_AGENT_KEY");
+    private final ArkProviderConfig config = ConfigLoader.load("app.provider.ark",  ArkProviderConfig.class);
     private final ArkService arkService;
     private final static ObjectMapper objectMapper =
-            new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
+            new ObjectMapper().setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL);
 
     public ArkProvider() {
-        this.arkService = ArkService.builder().baseUrl(baseUrl)
-                .apiKey(apiKey)
-                .timeout(Duration.ofSeconds(1800))
-                .connectTimeout(Duration.ofSeconds(20))
-                .retryTimes(2)
+        this.arkService = ArkService.builder().baseUrl(config.getBaseUrl())
+                .apiKey(config.getApiKey())
+                .timeout(Duration.ofSeconds(config.getTimeout()))
+                .connectTimeout(Duration.ofSeconds(config.getConnectTimeout()))
+                .retryTimes(config.getRetryTimes())
                 .build();
     }
 
