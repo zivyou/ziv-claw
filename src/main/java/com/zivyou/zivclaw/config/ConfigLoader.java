@@ -58,7 +58,7 @@ public final class ConfigLoader {
     }
 
     private static String profiles() {
-        String env = System.getenv("app.profile");
+        String env = System.getenv("APP_PROFILE");
         String prop = System.getProperty("app.profile");
         if (env == null) {
             env = "";
