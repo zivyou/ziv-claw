@@ -1,0 +1,7 @@
+app:
+  provider:
+    orcaRouter:
+      model: "OrcaRouter"
+      baseUrl: "https://api.orcarouter.ai/v1"
+      wireApi: "responses"
+      apiKey: "${ORCA_KEY}"
