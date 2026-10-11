@@ -10,8 +10,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 public final class ConfigLoader {
@@ -29,7 +32,7 @@ public final class ConfigLoader {
                 read("application-" + profile.trim() + ".yaml").ifPresent(m -> deepMerge(merged, m));
             }
         }
-//        resolvePlaceHolder(merged);
+        resolvePlaceHolder(merged);
 
         Object node = resolve(merged, key);
         if (node == null) {
@@ -69,17 +72,68 @@ public final class ConfigLoader {
         return env + "," + prop;
     }
 
-    /*
-    private static void resolvePlaceHolder(Map<String, Object> root) {
-        resolveEntry(root, root);
+    /**
+     * 解析配置中的 ${VAR} / ${VAR:default} 占位符，避免敏感信息入库。
+     * 查找顺序: system property > 环境变量 > 默认值; 都找不到时保留原样并打 warning。
+     */
+    static void resolvePlaceHolder(Map<String, Object> root) {
+        resolveEntry(root);
     }
 
-    private static final Pattern PH = Pattern.compile("\\$\\{([^}]+)}");
+    private static final Pattern PH = Pattern.compile("\\$\\{([^}:]+)(?::([^}]*))?}");
 
-
-    private static void resolveEntry(Object node, Map<String, Object> root) {
+    static String substitute(String value) {
+        if (value == null || value.isEmpty()) {
+            return value;
+        }
+        Matcher matcher = PH.matcher(value);
+        if (!matcher.find()) {
+            return value;
+        }
+        StringBuilder sb = new StringBuilder();
+        matcher.reset();
+        while (matcher.find()) {
+            String name = matcher.group(1).trim();
+            String replacement = System.getProperty(name);
+            if (replacement == null) {
+                replacement = System.getenv(name);
+            }
+            if (replacement == null) {
+                replacement = matcher.group(2);
+            }
+            if (replacement == null) {
+                log.warn("unresolved placeholder: {}", name);
+                replacement = matcher.group(0);
+            }
+            matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(sb);
+        return sb.toString();
     }
-    */
+
+    @SuppressWarnings("unchecked")
+    private static void resolveEntry(Object node) {
+        if (node instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                Object value = entry.getValue();
+                if (value instanceof String s) {
+                    ((Map.Entry<String, Object>) entry).setValue(substitute(s));
+                } else {
+                    resolveEntry(value);
+                }
+            }
+        } else if (node instanceof List<?>) {
+            List<Object> list = (List<Object>) node;
+            for (int i = 0; i < list.size(); i++) {
+                Object value = list.get(i);
+                if (value instanceof String s) {
+                    list.set(i, substitute(s));
+                } else {
+                    resolveEntry(value);
+                }
+            }
+        }
+    }
 
     @SuppressWarnings("unchecked")
     private static void deepMerge(Map<String, Object> target, Map<String, Object> source) {
