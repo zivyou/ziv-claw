@@ -2,7 +2,7 @@
 
 English | [中文](README.md)
 
-An AI agent written in Java with **zero frameworks** — no Spring, no magic. The ReAct loop, tool registry, context compaction, and session management are all hand-rolled, driving an LLM via the Volcengine Ark SDK to get tasks done.
+An AI agent written in Java with **zero frameworks** — no Spring, no magic. The ReAct loop, tool registry, context compaction, and session management are all hand-rolled, driving LLMs through pluggable providers (any OpenAI-compatible service, or Volcengine Ark) to get tasks done.
 
 ## Features
 
@@ -12,24 +12,62 @@ An AI agent written in Java with **zero frameworks** — no Spring, no magic. Th
 - **Parallel tool execution**: multiple tool calls within a single turn run concurrently on a thread pool
 - **Progressive context compaction**: oversized messages are compacted with their originals persisted to `.ziv-claw/compacted/`, which the model can retrieve itself via the Read tool; if still over budget, early history is dropped turn by turn
 - **Session persistence**: conversation history is saved to `./.session/<sessionId>` for resumable sessions
-- **Pluggable provider**: currently backed by Volcengine Ark (`ark-code-latest`); the `Provider` interface can be swapped for other model services
+- **Pluggable providers**: ships with a generic **OpenAI-compatible provider** (DeepSeek / Moonshot / Qwen compatible mode / OpenRouter / vLLM / Ollama / OrcaRouter ... all onboarded via pure configuration, with both `responses` and `chatCompletions` wire APIs supported) and a Volcengine **Ark provider**. Adding another OpenAI-compatible vendor requires zero code; only vendors with incompatible protocols need a new `Provider` implementation
+- **YAML-based configuration**: `application.yaml` plus profile files (`application-<profile>.yaml`) are merged in layers, with `${VAR:default}` placeholders injecting environment variables so secrets stay out of the repo
 
 ## Requirements
 
 - JDK 17+
 - Maven 3.x
-- A Volcengine Ark API key
+- An API key for any supported model service (Volcengine Ark, or any OpenAI-compatible service)
 
 ## Quick Start
 
+### 1. Configure a provider
+
+Add model instances under `app.provider.instances` in `src/main/resources/application.yaml` (an OrcaRouter example is included by default), and pick the active one via `app.provider.active`:
+
+```yaml
+app:
+  provider:
+    active: orcaRouter            # overridable via the APP_PROVIDER env var
+    instances:
+      orcaRouter:
+        type: openai-compatible
+        model: "OrcaRouter"
+        baseUrl: "https://api.orcarouter.ai/v1"
+        wireApi: "responses"      # or chatCompletions
+        apiKey: "${ORCA_KEY}"     # ${VAR:default} placeholder, injected from env at runtime
+      # Add other OpenAI-compatible vendors the same way, e.g.:
+      # deepseek:
+      #   type: openai-compatible
+      #   model: "deepseek-chat"
+      #   baseUrl: "https://api.deepseek.com/v1"
+      #   wireApi: "chatCompletions"
+      #   apiKey: "${DEEPSEEK_KEY}"
+      # Volcengine Ark:
+      # ark:
+      #   type: ark
+      #   model: "ark-code-latest"
+      #   baseUrl: "https://ark.cn-beijing.volces.com/api/plan/v3"
+      #   apiKey: "${ARK_KEY}"
+      #   timeout: 1800
+      #   connectTimeout: 20
+      #   retryTimes: 2
+```
+
+Sensitive values (e.g. real API keys) are best placed in `application-local.yaml` (already gitignored), enabled via the `APP_PROFILE=local` env var (or `-Dapp.profile=local`); profile files are deep-merged over `application.yaml`.
+
+### 2. Build and run
+
 ```bash
-# 1. Configure your API key
-export ARK_AGENT_KEY="your-ark-api-key"
+# Inject the API key (matching the placeholder variable name you configured)
+export ORCA_KEY="your-api-key"
+# Optional: switch provider instance / enable a profile
+export APP_PROVIDER="orcaRouter"
+export APP_PROFILE="local"
 
-# 2. Build
 mvn clean package
-
-# 3. Run (edit userPrompt in Application.java first)
 mvn compile exec:java -Dexec.mainClass=com.zivyou.zivclaw.Application
 ```
 
@@ -41,7 +79,11 @@ The entry point is `com.zivyou.zivclaw.Application` — set your task prompt (`u
 com.zivyou.zivclaw
 ├── Application          # Entry point
 ├── ReActAgent           # ReAct main loop: think → act → observe
-├── provider/            # Model service abstraction (ArkProvider)
+├── config/              # YAML config loading (ConfigLoader) and provider instance config model
+├── provider/            # Model service abstraction and factory
+│   ├── Provider / DefaultProviderFactory
+│   ├── OpenAICompatibleProvider   # Generic OpenAI-compatible protocol (responses / chatCompletions)
+│   └── ArkProvider                # Volcengine Ark
 ├── registry/            # Hand-rolled IoC: @AgentTool scanning, schema generation, dispatch
 │   ├── Tool / AbstractTool / AgentTool
 │   └── DefaultRegistry
@@ -78,7 +120,7 @@ Constraints: tool classes must be named concrete classes (no anonymous classes /
 
 ## How It Works
 
-1. `DefaultPromptComposer` assembles the system prompt; `SessionManager` loads or creates a session and restores working memory
+1. `ConfigLoader` merges the YAML configs and resolves placeholders; `DefaultProviderFactory` creates the provider for the `active` instance. `DefaultPromptComposer` assembles the system prompt; `SessionManager` loads or creates a session and restores working memory
 2. Each turn: `ContextCompactor` compacts history as needed → `Provider` calls the model → if there are no tool calls, the task is done
 3. When tools are called, a thread pool executes them concurrently; results are fed back as `TOOL` messages for the next turn
 4. The session is persisted at the end of each turn; a shutdown hook gracefully closes the thread pool and provider on exit
