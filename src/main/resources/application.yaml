@@ -1,7 +1,18 @@
 app:
   provider:
-    orcaRouter:
-      model: "OrcaRouter"
-      baseUrl: "https://api.orcarouter.ai/v1"
-      wireApi: "responses"
-      apiKey: "${ORCA_KEY}"
+    # 当前启用的 provider 实例名，对应下面 instances 中的 key；可被 APP_PROVIDER 环境变量覆盖
+    active: orcaRouter
+    instances:
+      orcaRouter:
+        type: openai-compatible
+        model: "OrcaRouter"
+        baseUrl: "https://api.orcarouter.ai/v1"
+        wireApi: "responses"
+        apiKey: "${ORCA_KEY}"
+      # 其他 OpenAI 兼容厂商照此添加即可，例如:
+      # deepseek:
+      #   type: openai-compatible
+      #   model: "deepseek-chat"
+      #   baseUrl: "https://api.deepseek.com/v1"
+      #   wireApi: "chatCompletions"
+      #   apiKey: "${DEEPSEEK_KEY}"

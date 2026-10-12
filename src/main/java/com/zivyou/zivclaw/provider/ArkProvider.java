@@ -6,8 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.volcengine.ark.runtime.model.completion.chat.*;
 import com.volcengine.ark.runtime.service.ArkService;
-import com.zivyou.zivclaw.config.ArkProviderConfig;
-import com.zivyou.zivclaw.config.ConfigLoader;
+import com.zivyou.zivclaw.config.ProviderInstanceConfig;
 import com.zivyou.zivclaw.context.AgentContext;
 import com.zivyou.zivclaw.message.Function;
 import com.zivyou.zivclaw.message.Message;
@@ -22,12 +21,16 @@ import java.util.List;
 
 @Slf4j
 public class ArkProvider implements Provider, AutoCloseable {
-    private final ArkProviderConfig config = ConfigLoader.load("app.provider.ark",  ArkProviderConfig.class);
+    private final ProviderInstanceConfig config;
     private final ArkService arkService;
     private final static ObjectMapper objectMapper =
             new ObjectMapper().setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL);
 
-    public ArkProvider() {
+    public ArkProvider(ProviderInstanceConfig config) {
+        if (config == null) {
+            throw new IllegalStateException("missing config for ark provider");
+        }
+        this.config = config;
         this.arkService = ArkService.builder().baseUrl(config.getBaseUrl())
                 .apiKey(config.getApiKey())
                 .timeout(Duration.ofSeconds(config.getTimeout()))
@@ -38,7 +41,7 @@ public class ArkProvider implements Provider, AutoCloseable {
 
     @Override
     public Message generate(AgentContext agentContext, List<Message> messages, List<ToolDefinition> toolDefinitions) {
-        var request = ChatCompletionRequest.builder().model("ark-code-latest")
+        var request = ChatCompletionRequest.builder().model(config.getModel())
                 .messages(messages.stream().map(ArkProvider::convert).toList());
         if (toolDefinitions != null && !toolDefinitions.isEmpty()) {
             request.tools(toolDefinitions.stream().map(ArkProvider::convert).toList());

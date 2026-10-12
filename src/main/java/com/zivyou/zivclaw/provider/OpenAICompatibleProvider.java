@@ -27,8 +27,7 @@ import com.openai.models.responses.ResponseFunctionToolCall;
 import com.openai.models.responses.ResponseInputItem;
 import com.openai.models.responses.ResponseOutputItem;
 import com.openai.models.responses.ResponseOutputMessage;
-import com.zivyou.zivclaw.config.ConfigLoader;
-import com.zivyou.zivclaw.config.OrcaRouterProviderConfig;
+import com.zivyou.zivclaw.config.ProviderInstanceConfig;
 import com.zivyou.zivclaw.context.AgentContext;
 import com.zivyou.zivclaw.message.Function;
 import com.zivyou.zivclaw.message.Message;
@@ -42,21 +41,30 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 通用 OpenAI 兼容 Provider：任何实现了 OpenAI wire 协议的厂商
+ * （DeepSeek / Moonshot / Qwen 兼容模式 / OpenRouter / vLLM / Ollama ...）
+ * 只需在 yaml 中配置 baseUrl/apiKey/model/wireApi 即可接入，无需新增代码。
+ */
 @Slf4j
-public class OrcaRouterProvider implements Provider {
-    private final OrcaRouterProviderConfig config = ConfigLoader.load("app.provider.orcaRouter", OrcaRouterProviderConfig.class);
+public class OpenAICompatibleProvider implements Provider {
+    private final ProviderInstanceConfig config;
     private final OpenAIClient client;
     private final static ObjectMapper objectMapper =
             new ObjectMapper().setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL);
 
-    public OrcaRouterProvider() {
+    public OpenAICompatibleProvider(ProviderInstanceConfig config) {
         if (config == null) {
-            throw new IllegalStateException("missing config: app.provider.orcaRouter");
+            throw new IllegalStateException("missing config for openai-compatible provider");
         }
-        this.client = OpenAIOkHttpClient.builder()
+        this.config = config;
+        var builder = OpenAIOkHttpClient.builder()
                 .baseUrl(config.getBaseUrl())
-                .apiKey(config.getApiKey())
-                .build();
+                .apiKey(config.getApiKey());
+        if (config.getHeaders() != null) {
+            config.getHeaders().forEach(builder::putHeader);
+        }
+        this.client = builder.build();
     }
 
     @Override
@@ -88,11 +96,12 @@ public class OrcaRouterProvider implements Provider {
             return convert(response.output());
         } catch (Exception e) {
             try {
-                log.error("orcaRouter responses invoke fail! request: {}", objectMapper.writeValueAsString(request.build()), e);
+                log.error("openai-compatible({}) responses invoke fail! request: {}",
+                        config.getBaseUrl(), objectMapper.writeValueAsString(request.build()), e);
             } catch (JsonProcessingException ex) {
                 throw new RuntimeException(ex);
             }
-            throw new RuntimeException("orcaRouter responses invoke failed!");
+            throw new RuntimeException("openai-compatible responses invoke failed!");
         }
     }
 
@@ -209,11 +218,12 @@ public class OrcaRouterProvider implements Provider {
             return convert(response.choices().get(0).message());
         } catch (Exception e) {
             try {
-                log.error("orcaRouter chatCompletions invoke fail! request: {}", objectMapper.writeValueAsString(request.build()), e);
+                log.error("openai-compatible({}) chatCompletions invoke fail! request: {}",
+                        config.getBaseUrl(), objectMapper.writeValueAsString(request.build()), e);
             } catch (JsonProcessingException ex) {
                 throw new RuntimeException(ex);
             }
-            throw new RuntimeException("orcaRouter chatCompletions invoke failed!");
+            throw new RuntimeException("openai-compatible chatCompletions invoke failed!");
         }
     }
 
