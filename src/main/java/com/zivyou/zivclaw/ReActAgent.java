@@ -40,7 +40,7 @@ public class ReActAgent {
             );
 
     public void start(AgentContext agentContext, String userPrompt) {
-        log.info("[Agent] agent启动, pwd: {}", agentContext.getWorkDir());
+        log.debug("[Agent] agent启动, pwd: {}", agentContext.getWorkDir());
         List<Message> history = new CopyOnWriteArrayList<>();
         var systemPromptComposer = new DefaultPromptComposer(agentContext.getWorkDir());
         history.add(
@@ -58,7 +58,7 @@ public class ReActAgent {
         );
 
         while (true) {
-            log.info("[Agent] thinking...");
+            log.debug("[Agent] thinking...");
             var tools = registry.getAvailableTools();
             List<Message> messages = contextCompactor.compact(agentContext, history);
             var response = provider.generate(agentContext, messages, tools);
@@ -71,18 +71,18 @@ public class ReActAgent {
             reporter.report(response.getContent());
 
             if (CollectionUtils.isEmpty(response.getToolCalls())) {
-                log.info("[Agent] 任务完成,退出循环.");
+                log.debug("[Agent] 任务完成,退出循环.");
                 break;
             }
             reporter.report("模型调用工具: " + JsonUtil.stringify(response.getToolCalls()));
             var futures = response.getToolCalls().stream().map(toolCall -> CompletableFuture.runAsync(() -> {
-                log.info(" -> 工具调用: {}, 参数: {}", toolCall.getFunction().getName(), toolCall.getFunction().getArguments());
+                log.debug(" -> 工具调用: {}, 参数: {}", toolCall.getFunction().getName(), toolCall.getFunction().getArguments());
                 var result = registry.execute(agentContext, toolCall);
                 reporter.report(String.format("工具调用结果: %s", JsonUtil.stringify(result)));
                 if (result == null) {
                     log.error(" -> 工具: {} 执行失败!", toolCall.getFunction().getName());
                 } else {
-                    log.info(" -> 工具: {} 执行成功: {}", toolCall.getFunction().getName(), result);
+                    log.debug(" -> 工具: {} 执行成功: {}", toolCall.getFunction().getName(), result);
                     var message = Message.builder().role(Role.TOOL).name(toolCall.getFunction().getName()).toolCallId(result.getToolCallId()).content(result.getOutput()).build();
                     messages.add(message);
                     session.appendSession(message);
@@ -90,7 +90,7 @@ public class ReActAgent {
             }, executorService));
             var tasks = CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new));
             tasks.thenAccept(v->{
-                log.info("工具调用完成!");
+                log.debug("工具调用完成!");
             }).exceptionally(e -> {
                 log.error("工具调用失败！ {}", e.getMessage());
                 return null;
