@@ -15,6 +15,12 @@ public class Application {
     public static void main(String[] args) {
         var context = AgentContext.builder().workDir(System.getProperty("user.dir")).build();
         ReActAgent agent = new ReActAgent();
+        if (args.length > 0) {
+            String userPrompt = String.join(" ", args);
+            agent.start(context, userPrompt);
+            log.info("[Application(one-shot模式)] agent正常退出.");
+            return;
+        }
         TUI tui = new TUI(agent, context);
         tui.start();
         log.info("[Application] agent正常退出.");
