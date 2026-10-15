@@ -19,6 +19,7 @@ public class Application {
             String userPrompt = String.join(" ", args);
             agent.start(context, userPrompt);
             log.info("[Application(one-shot模式)] agent正常退出.");
+            agent.shutdown();
             return;
         }
         TUI tui = new TUI(agent, context);

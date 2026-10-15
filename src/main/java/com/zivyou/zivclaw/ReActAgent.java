@@ -9,8 +9,10 @@ import com.zivyou.zivclaw.provider.DefaultProviderFactory;
 import com.zivyou.zivclaw.provider.Provider;
 import com.zivyou.zivclaw.registry.DefaultRegistry;
 import com.zivyou.zivclaw.registry.Registry;
-import com.zivyou.zivclaw.reporter.ConsoleReporter;
+import com.zivyou.zivclaw.reporter.ConsolePresenter;
+import com.zivyou.zivclaw.reporter.EventType;
 import com.zivyou.zivclaw.reporter.Reporter;
+import com.zivyou.zivclaw.reporter.ToolResultEvent;
 import com.zivyou.zivclaw.session.DefaultSessionManager;
 import com.zivyou.zivclaw.session.SessionManager;
 import com.zivyou.zivclaw.util.JsonUtil;
@@ -28,7 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class ReActAgent {
     private final Provider provider = DefaultProviderFactory.getProvider();
     private final Registry registry = new DefaultRegistry();
-    private final Reporter reporter = new ConsoleReporter();
+    private final Reporter reporter = new ConsolePresenter();
     private final SessionManager sessionManager = new DefaultSessionManager();
     private final ContextCompactor contextCompactor = new ContextCompactor();
 
@@ -68,17 +70,18 @@ public class ReActAgent {
             }
             messages.add(response);
             session.appendSession(response);
-            reporter.report(response.getContent());
+            reporter.report(EventType.ASSISTANT_TEXT, response.getContent());
 
             if (CollectionUtils.isEmpty(response.getToolCalls())) {
                 log.debug("[Agent] 任务完成,退出循环.");
                 break;
             }
-            reporter.report("模型调用工具: " + JsonUtil.stringify(response.getToolCalls()));
+            reporter.report(EventType.TOOL_CALL, response.getToolCalls());
             var futures = response.getToolCalls().stream().map(toolCall -> CompletableFuture.runAsync(() -> {
                 log.debug(" -> 工具调用: {}, 参数: {}", toolCall.getFunction().getName(), toolCall.getFunction().getArguments());
                 var result = registry.execute(agentContext, toolCall);
-                reporter.report(String.format("工具调用结果: %s", JsonUtil.stringify(result)));
+                reporter.report(EventType.TOOL_RESULT,
+                        new ToolResultEvent(toolCall.getFunction().getName(), result));
                 if (result == null) {
                     log.error(" -> 工具: {} 执行失败!", toolCall.getFunction().getName());
                 } else {
