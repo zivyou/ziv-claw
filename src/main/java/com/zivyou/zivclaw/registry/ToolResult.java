@@ -1,5 +1,6 @@
 package com.zivyou.zivclaw.registry;
 
+import com.zivyou.zivclaw.util.JsonUtil;
 import lombok.Getter;
 
 /**
@@ -39,6 +40,10 @@ public final class ToolResult {
     /** 协议层使用:registry 在工具异常/返回 null 时构造带 id 的结果。 */
     public static ToolResult error(String toolCallId, String message) {
         return new ToolResult(toolCallId, message, true);
+    }
+
+    public static ToolResult ok(Object object) {
+        return new ToolResult(null, JsonUtil.stringify(object), false);
     }
 
     /** 返回一个 toolCallId 被替换后的新实例。用于 registry 单点注入协议 id。 */

@@ -16,3 +16,8 @@ app:
       #   baseUrl: "https://api.deepseek.com/v1"
       #   wireApi: "chatCompletions"
       #   apiKey: "${DEEPSEEK_KEY}"
+
+  webSearch:
+    providerName: tavily
+    apiKey: xxx
+    baseUrl: xxx
