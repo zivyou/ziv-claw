@@ -3,6 +3,7 @@ package com.zivyou.zivclaw;
 import com.zivyou.zivclaw.context.AgentContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang.StringUtils;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
 import org.jline.terminal.Terminal;
@@ -43,6 +44,9 @@ class TUI {
                 }
                 terminal.writer().println(line);
                 terminal.flush();
+                if (StringUtils.isBlank(line)) {
+                    continue;
+                }
                 agent.start(agentContext, line);
             }
             terminal.writer().println("Bye!");
