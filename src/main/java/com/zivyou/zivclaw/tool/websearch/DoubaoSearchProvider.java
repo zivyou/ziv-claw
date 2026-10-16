@@ -1,6 +1,5 @@
 package com.zivyou.zivclaw.tool.websearch;
 
-import com.zivyou.zivclaw.config.ConfigLoader;
 import com.zivyou.zivclaw.util.JsonUtil;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.MediaType;
@@ -17,10 +16,12 @@ import java.util.Map;
 /**
  * 豆包搜索 Custom 版(原联网搜索/融合信息搜索)实现。
  * 接口约定见 docs/doubao-search-custom-api.md。
+ * 通过 SPI 加载:配置由核心包读取后经 {@link #configure} 注入,本类不直接访问配置体系。
  */
 @Slf4j
-public class DefaultSearchProvider implements SearchProvider {
-    /** APIKey 接入的官方地址;application.yaml 里 app.webSearch.baseUrl 为空时回退到这里。 */
+public class DoubaoSearchProvider implements SearchProvider {
+    public static final String NAME = "doubao";
+    /** APIKey 接入的官方地址;配置项 app.webSearch.baseUrl 为空时回退到这里。 */
     private static final String DEFAULT_BASE_URL = "https://open.feedcoopapi.com/search_api/web_search";
     /** 文搜文 Count 上限(文档:最多 50 条,默认 10 条)。 */
     private static final int DEFAULT_COUNT = 10;
@@ -30,12 +31,23 @@ public class DefaultSearchProvider implements SearchProvider {
     private static final int MAX_BLOCK_HOSTS = 5;
     private static final MediaType JSON = MediaType.parse("application/json");
 
-    private static final WebSearchProviderConfig config = ConfigLoader.load("app.webSearch", WebSearchProviderConfig.class);
     private static final OkHttpClient client = new OkHttpClient.Builder()
             .connectTimeout(Duration.ofSeconds(10))
             .readTimeout(Duration.ofSeconds(30))
             .writeTimeout(Duration.ofSeconds(30))
             .retryOnConnectionFailure(true).build();
+
+    private WebSearchProviderConfig config = new WebSearchProviderConfig();
+
+    @Override
+    public String name() {
+        return NAME;
+    }
+
+    @Override
+    public void configure(WebSearchProviderConfig config) {
+        this.config = config;
+    }
 
     @Override
     public List<WebSearchResult> search(WebSearchArg args) {
@@ -56,7 +68,7 @@ public class DefaultSearchProvider implements SearchProvider {
         if (items == null) {
             return List.of();
         }
-        return items.stream().map(DefaultSearchProvider::toSearchResult).toList();
+        return items.stream().map(DoubaoSearchProvider::toSearchResult).toList();
     }
 
     private String rawRequest(WebSearchArg args) {
@@ -123,7 +135,7 @@ public class DefaultSearchProvider implements SearchProvider {
         return result;
     }
 
-    private static String baseUrl() {
+    private String baseUrl() {
         String baseUrl = config.getBaseUrl();
         return baseUrl == null || baseUrl.isBlank() ? DEFAULT_BASE_URL : baseUrl;
     }

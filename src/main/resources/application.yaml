@@ -18,6 +18,8 @@ app:
       #   apiKey: "${DEEPSEEK_KEY}"
 
   webSearch:
-    providerName: tavily
+    # 使用的 SearchProvider SPI 实现名(实现类的 name()),留空则取 classpath 上第一个发现的实现
+    providerName: doubao
     apiKey: xxx
+    # 留空时使用实现方的默认地址
     baseUrl: xxx
