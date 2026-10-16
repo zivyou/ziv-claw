@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Paths;
+import java.util.Date;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -60,10 +61,16 @@ public class DefaultPromptComposer implements PromptComposer {
         }
     }
 
+    private void setDate() {
+        var date = new Date();
+        sb.append(String.format("\n此次会话启动的时间为：%s\n", date));
+    }
+
     @Override
     public Message compose() {
         loadAgentsMD();
         loadSkills();
+        setDate();
         return Message.builder()
                 .role(Role.SYSTEM)
                 .content(sb.toString())
