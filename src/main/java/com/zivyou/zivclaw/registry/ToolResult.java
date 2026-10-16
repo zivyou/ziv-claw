@@ -43,7 +43,7 @@ public final class ToolResult {
     }
 
     public static ToolResult ok(Object object) {
-        return new ToolResult(null, JsonUtil.stringify(object), false);
+        return new ToolResult(null, JsonUtil.prettyPrint(object), false);
     }
 
     /** 返回一个 toolCallId 被替换后的新实例。用于 registry 单点注入协议 id。 */
