@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * 渐进式上下文压缩器。
@@ -193,7 +194,7 @@ public class ContextCompactor {
         }
 
         int from = Math.max(0, turns.size() - keepRounds);
-        List<Message> result = new ArrayList<>(systems);
+        List<Message> result = new CopyOnWriteArrayList<>(systems);
         for (int t = from; t < turns.size(); t++) {
             result.addAll(turns.get(t));
         }

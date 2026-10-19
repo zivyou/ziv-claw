@@ -63,7 +63,7 @@ public class DefaultSessionManager implements SessionManager {
         Path path = Paths.get(filePath);
         try {
             Files.createDirectories(path.getParent());
-            Files.writeString(path, JsonUtil.stringify(sessions.get(id)));
+            Files.writeString(path, JsonUtil.prettyPrint(sessions.get(id)));
         } catch (IOException e) {
             log.error("save session to file failed!", e);
             throw new RuntimeException(e);
