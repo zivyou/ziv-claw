@@ -18,9 +18,17 @@ public class ReadTool extends AbstractTool<ReadToolArg> {
         var filePath = Paths.get(args.getPath());
         var fullPath = basePath.resolve(filePath);
         try (var br = new BufferedReader(new FileReader(fullPath.toFile()))) {
-            StringBuilder sb = new StringBuilder();
+            int skip = args.getOffset() == null ? 0 : Math.max(args.getOffset(), 0);
             String line;
-            while ( (line = br.readLine()) != null) sb.append(line);
+            while (skip > 0 && (line = br.readLine()) != null) skip--;
+
+            long maxLines = args.getLimit() == null ? Long.MAX_VALUE : Math.max(args.getLimit(), 0);
+            StringBuilder sb = new StringBuilder();
+            long read = 0;
+            while (read < maxLines && (line = br.readLine()) != null) {
+                sb.append(line).append('\n');
+                read++;
+            }
             return ToolResult.ok(sb.toString());
         } catch (FileNotFoundException e) {
             log.error("file {} not found", fullPath);

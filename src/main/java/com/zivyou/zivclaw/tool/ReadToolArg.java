@@ -19,4 +19,10 @@ public class ReadToolArg {
     @JsonProperty(required = true)
     @JsonPropertyDescription("相对于当前工作目录的相对路径")
     String path;
+
+    @JsonPropertyDescription("从文件第几行开始读取,可省略;省略时从文件开头读取,默认从第 1 行(offset=0)开始")
+    Integer offset;
+
+    @JsonPropertyDescription("只读取连续多少行,可省略;省略时读到文件末尾")
+    Integer limit;
 }
