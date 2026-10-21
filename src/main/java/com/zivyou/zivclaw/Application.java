@@ -29,10 +29,15 @@ public class Application {
     }
 }
 
-@RequiredArgsConstructor
+
 class TUI {
-    private final ReActAgent agent;
+    private ReActAgent agent;
     private final AgentContext agentContext;
+
+    TUI(ReActAgent agent, AgentContext agentContext) {
+        this.agent = agent;
+        this.agentContext = agentContext;
+    }
     public void start() {
         try {
             Terminal terminal = TerminalBuilder.builder().system(true).build();
@@ -41,6 +46,12 @@ class TUI {
                 String line = reader.readLine("> ");
                 if ("/exit".equals(line)) {
                     break;
+                }
+                if ("/clear".equals(line)) {
+                    agent.resetConversation(agentContext);
+                    agent.shutdown();
+                    agentContext.setSessionId(null);
+                    agent = new ReActAgent();
                 }
                 terminal.writer().println(line);
                 terminal.flush();

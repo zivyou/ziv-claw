@@ -70,4 +70,21 @@ public class DefaultSessionManager implements SessionManager {
         }
         return true;
     }
+
+    @Override
+    public Boolean reset(String id) {
+        if (null == id || id.isBlank()) {
+            return false;
+        }
+        Session removed = sessions.remove(id);
+        if (removed != null) {
+            String filePath = String.format("./.session/%s", id);
+            try {
+                Files.deleteIfExists(Paths.get(filePath));
+            } catch (IOException e) {
+                log.error("session reset: delete file failed: {}", filePath, e);
+            }
+        }
+        return removed != null;
+    }
 }

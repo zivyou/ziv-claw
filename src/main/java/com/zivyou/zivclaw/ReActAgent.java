@@ -147,6 +147,19 @@ public class ReActAgent {
         return Base64.getEncoder().encodeToString(text.getBytes(StandardCharsets.UTF_8));
     }
 
+    /**
+     * 清空指定会话的历史（含内存中的 working memory 与磁盘 .session 文件）。
+     * TUI 的 /clear 使用，让下一次 start 从零开始。
+     */
+    public void resetConversation(AgentContext ctx) {
+        String sessionId = ctx == null ? null : ctx.getSessionId();
+        if (sessionId == null || sessionId.isBlank()) {
+            return;
+        }
+        log.info("[Agent] 清空会话: {}", sessionId);
+        sessionManager.reset(sessionId);
+    }
+
     public void shutdown() {
         if (!shutdownCalled.compareAndSet(false, true)) {
             return;
