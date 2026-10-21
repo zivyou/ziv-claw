@@ -2,8 +2,14 @@ package com.zivyou.zivclaw.provider;
 
 import com.zivyou.zivclaw.config.ConfigLoader;
 import com.zivyou.zivclaw.config.ProviderInstanceConfig;
+import com.zivyou.zivclaw.context.AgentContext;
+import com.zivyou.zivclaw.retry.ProviderRetryProxy;
+import com.zivyou.zivclaw.retry.Retry;
 import lombok.extern.slf4j.Slf4j;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -31,7 +37,7 @@ public class DefaultProviderFactory {
                     "unknown provider type: " + config.getType() + ", available: " + REGISTRY.keySet());
         }
         log.info("using provider instance: {} (type: {}, baseUrl: {})", active, config.getType(), config.getBaseUrl());
-        return constructor.apply(config);
+        return wrap(constructor.apply(config));
     }
 
     /** APP_PROVIDER 环境变量 > app.provider.active 配置 */
@@ -44,5 +50,25 @@ public class DefaultProviderFactory {
             throw new IllegalStateException("no active provider: set APP_PROVIDER env or app.provider.active in yaml");
         }
         return active.trim();
+    }
+
+    private static Provider wrap(Provider original) {
+        if (original == null) {
+            throw new IllegalArgumentException("provider must not be null");
+        }
+        try {
+            Method method = original.getClass().getMethod("generate", AgentContext.class, List.class, List.class);
+            if (method.isAnnotationPresent(Retry.class)) {
+                return (Provider) Proxy.newProxyInstance(
+                        original.getClass().getClassLoader(),
+                        new Class<?>[]{Provider.class},
+                        new ProviderRetryProxy(original)
+                );
+            }
+            return original;
+        } catch (NoSuchMethodException e) {
+            log.warn("can't find generate() method", e);
+            return original;
+        }
     }
 }

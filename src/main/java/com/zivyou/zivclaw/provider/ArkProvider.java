@@ -8,11 +8,13 @@ import com.volcengine.ark.runtime.model.completion.chat.*;
 import com.volcengine.ark.runtime.service.ArkService;
 import com.zivyou.zivclaw.config.ProviderInstanceConfig;
 import com.zivyou.zivclaw.context.AgentContext;
+import com.zivyou.zivclaw.exception.RetryableException;
 import com.zivyou.zivclaw.message.Function;
 import com.zivyou.zivclaw.message.Message;
 import com.zivyou.zivclaw.message.Role;
 import com.zivyou.zivclaw.message.ToolCall;
 import com.zivyou.zivclaw.registry.ToolDefinition;
+import com.zivyou.zivclaw.retry.Retry;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
@@ -40,6 +42,7 @@ public class ArkProvider implements Provider, AutoCloseable {
     }
 
     @Override
+    @Retry
     public Message generate(AgentContext agentContext, List<Message> messages, List<ToolDefinition> toolDefinitions) {
         var request = ChatCompletionRequest.builder().model(config.getModel())
                 .messages(messages.stream().map(ArkProvider::convert).toList());
@@ -54,9 +57,9 @@ public class ArkProvider implements Provider, AutoCloseable {
             try {
                 log.error("akr invoke fail! request: {}", objectMapper.writeValueAsString(request.build()), e);
             } catch (JsonProcessingException ex) {
-                throw new RuntimeException(ex);
+                throw new RetryableException(ex);
             }
-            throw new RuntimeException("ark invoke failed!");
+            throw new RetryableException("ark invoke failed!");
         }
     }
 
